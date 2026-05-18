@@ -1,0 +1,19 @@
+# Model weights - 47GB, never commit these
+models/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment / secrets
+.env
+*.token
+
+# Data outputs (regenerated, can be large)
+data/raw/
+data/sft/
+
+# OS / editor junk
+.DS_Store
+.ipynb_checkpoints/

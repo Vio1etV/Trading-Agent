@@ -1,0 +1,106 @@
+"""Risk Manager Agent: reads technical indicators -> writes risk_report.
+
+Backed by a local Qwen2.5-7B-Instruct model. Same three-piece shape as
+the analyst: load model, build prompt, make node.
+"""
+
+from __future__ import annotations
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from src.config import RISK_MODEL_PATH, MAX_NEW_TOKENS, TEMPERATURE
+from src.graph.state import TradingState
+from src.tools.indicators import format_indicators_for_agent
+
+
+# --- The exact report format the model must follow ---
+RISK_REPORT_TEMPLATE = """## Risk Manager Report: {ticker}
+
+Current Price: <$ value>
+Risk Level: <High / Medium / Low>
+Trend: <Uptrend / Sideways / Downtrend>
+
+Technical Signals:
+- RSI: <value + overbought/oversold/neutral>
+- MACD: <bullish / bearish>
+- Bollinger: <where price sits in the band>
+
+Support: <$ value>
+Resistance: <$ value>
+Entry Zone: <$ low - $ high>
+Stop Loss: <$ value>
+
+Risk Assessment: <1-2 sentences summarizing the risk>"""
+
+
+# --- The role instruction given to the model ---
+RISK_INSTRUCTIONS = """You are a professional risk manager.
+Read the technical indicators below and write a concise risk report.
+Base every statement on the data provided. Do not invent numbers.
+For Entry Zone and Stop Loss, reason from the support, resistance,
+and current price. Follow the report format exactly. Replace every
+<...> placeholder with real content and keep the headers unchanged."""
+
+
+def load_risk_model():
+    """Load the Qwen2.5 model and tokenizer. Call this once at startup."""
+    tokenizer = AutoTokenizer.from_pretrained(RISK_MODEL_PATH)
+    model = AutoModelForCausalLM.from_pretrained(
+        RISK_MODEL_PATH,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
+    return model, tokenizer
+
+
+def _build_prompt(ticker: str, user_question: str) -> str:
+    """Gather indicator data and assemble the user-turn prompt text."""
+    indicators = format_indicators_for_agent(ticker)
+    report_format = RISK_REPORT_TEMPLATE.format(ticker=ticker)
+
+    return f"""User question: {user_question}
+
+=== TECHNICAL INDICATORS ===
+{indicators}
+
+=== REPORT FORMAT (follow exactly) ===
+{report_format}
+"""
+
+
+def make_risk_node(model, tokenizer):
+    """Return the LangGraph node function, with the model bound in."""
+
+    def risk_node(state: TradingState) -> dict:
+        ticker = state["ticker"]
+        question = state["user_question"]
+
+        prompt = _build_prompt(ticker, question)
+
+        # *** DIFFERENT FROM ANALYST ***
+        # Qwen2.5 supports a system role, so instructions go in a
+        # separate system message instead of being glued to the user turn.
+        messages = [
+            {"role": "system", "content": RISK_INSTRUCTIONS},
+            {"role": "user", "content": prompt},
+        ]
+        inputs = tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+        ).to(model.device)
+
+        outputs = model.generate(
+            inputs,
+            max_new_tokens=MAX_NEW_TOKENS,
+            temperature=TEMPERATURE,
+            do_sample=True,
+        )
+
+        generated = outputs[0][inputs.shape[-1]:]
+        report = tokenizer.decode(generated, skip_special_tokens=True)
+
+        return {"risk_report": report.strip()}
+
+    return risk_node

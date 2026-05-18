@@ -1,0 +1,40 @@
+Tool: market_data.py
+Category: Market Data
+Data source: yfinance
+Data type: current price, historical price, volume, price trend
+Used by: Risk Manager Agent
+
+Tool: indicators.py
+Category: Market Data
+Data source: yfinance price history
+Calculation library: ta
+Data type: RSI, MACD, Bollinger Bands, moving averages, support, resistance, volatility
+Used by: Risk Manager Agent
+
+Tool: fundamental_data.py
+Category: Fundamental Data
+Data source: yfinance company info + SEC EDGAR
+Data type: company profile, business scope, sector, industry, market cap, PE, filings, financial reports
+Used by: Analyst Agent
+
+Tool: finance_news.py
+Category: Finance News
+Data source: Yahoo Finance RSS
+Data type: ticker-specific finance news, market news, article titles, summaries, links, published time
+Used by: Analyst Agent
+
+Tool: social_media.py
+Category: Social Media
+Data source: StockTwits public API + Reddit public JSON
+Data type: retail messages, bullish/bearish tags, Reddit discussion posts, market discussion
+Used by: Analyst Agent
+
+Tool: world_news.py
+Category: World News / Web Context
+Data source: DuckDuckGo Search
+Data type: world news, macro context, policy context, geopolitics, industry background, public web results
+Used by: Analyst Agent
+
+Trader Agent:
+Data used: Analyst report + Risk Manager report + user question
+Tools used: none

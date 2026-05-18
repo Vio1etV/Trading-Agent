@@ -1,0 +1,19 @@
+# --- LLM / agent stack ---
+torch
+transformers
+accelerate
+langgraph
+huggingface_hub
+
+# --- data tools ---
+yfinance
+pandas
+numpy
+python-dotenv
+requests
+feedparser
+ta
+ddgs
+beautifulsoup4
+lxml
+html5lib
