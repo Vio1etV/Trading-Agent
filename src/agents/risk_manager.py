@@ -48,7 +48,7 @@ def load_risk_model():
     tokenizer = AutoTokenizer.from_pretrained(RISK_MODEL_PATH)
     model = AutoModelForCausalLM.from_pretrained(
         RISK_MODEL_PATH,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
     )
     return model, tokenizer

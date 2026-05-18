@@ -45,8 +45,12 @@ def load_analyst_model():
     tokenizer = AutoTokenizer.from_pretrained(ANALYST_MODEL_PATH)
     model = AutoModelForCausalLM.from_pretrained(
         ANALYST_MODEL_PATH,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
+        # Gemma-2 uses logit soft-capping, which only works correctly
+        # with the eager attention implementation. Without this,
+        # generation can produce NaN logits and crash torch.multinomial.
+        attn_implementation="eager",
     )
     return model, tokenizer
 
