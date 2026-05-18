@@ -11,7 +11,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.config import RISK_MODEL_PATH, MAX_NEW_TOKENS, TEMPERATURE
 from src.graph.state import TradingState
-from src.tools.indicators import format_indicators_for_agent
+from src.tools.data_cache import load_data_bundle
 
 
 # --- The exact report format the model must follow ---
@@ -55,8 +55,9 @@ def load_risk_model():
 
 
 def _build_prompt(ticker: str, user_question: str) -> str:
-    """Gather indicator data and assemble the user-turn prompt text."""
-    indicators = format_indicators_for_agent(ticker)
+    """Load cached indicator data and assemble the user-turn prompt text."""
+    data = load_data_bundle(ticker)
+    indicators = data["indicators"]
     report_format = RISK_REPORT_TEMPLATE.format(ticker=ticker)
 
     return f"""User question: {user_question}

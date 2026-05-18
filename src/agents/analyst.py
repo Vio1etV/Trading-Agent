@@ -13,10 +13,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.config import ANALYST_MODEL_PATH, MAX_NEW_TOKENS, TEMPERATURE
 from src.graph.state import TradingState
-from src.tools.finance_news import format_news_for_agent
-from src.tools.fundamental_data import format_fundamental_for_agent
-from src.tools.social_media import format_social_for_agent
-from src.tools.world_news import format_world_news_for_agent
+from src.tools.data_cache import load_data_bundle
 
 
 # --- The exact report format the model must follow ---
@@ -55,11 +52,12 @@ def load_analyst_model():
 
 
 def _build_prompt(ticker: str, user_question: str) -> str:
-    """Gather all tool data and assemble the full prompt text."""
-    fundamentals = format_fundamental_for_agent(ticker)
-    news = format_news_for_agent(ticker)
-    social = format_social_for_agent(ticker)
-    macro = format_world_news_for_agent(f"{ticker} stock industry macro news")
+    """Load cached tool data and assemble the full prompt text."""
+    data = load_data_bundle(ticker)
+    fundamentals = data["fundamental"]
+    news = data["news"]
+    social = data["social"]
+    macro = data["world_news"]
 
     report_format = ANALYST_REPORT_TEMPLATE.format(ticker=ticker)
 
