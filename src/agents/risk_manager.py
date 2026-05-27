@@ -7,9 +7,9 @@ the analyst: load model, build prompt, make node.
 from __future__ import annotations
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from src.config import RISK_MODEL_PATH, MAX_NEW_TOKENS, TEMPERATURE
+from src.config import RISK_MODEL_PATH, MAX_NEW_TOKENS, TEMPERATURE, USE_4BIT
 from src.graph.state import TradingState
 from src.tools.data_cache import load_data_bundle
 
@@ -46,10 +46,20 @@ and current price. Follow the report format exactly. Replace every
 def load_risk_model():
     """Load the Qwen2.5 model and tokenizer. Call this once at startup."""
     tokenizer = AutoTokenizer.from_pretrained(RISK_MODEL_PATH)
+
+    load_kwargs = {"device_map": "cuda:0"}
+
+    if USE_4BIT:
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        )
+    else:
+        load_kwargs["dtype"] = torch.bfloat16
+
     model = AutoModelForCausalLM.from_pretrained(
-        RISK_MODEL_PATH,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
+        RISK_MODEL_PATH, **load_kwargs
     )
     return model, tokenizer
 
@@ -79,9 +89,6 @@ def make_risk_node(model, tokenizer):
 
         prompt = _build_prompt(ticker, question)
 
-        # *** DIFFERENT FROM ANALYST ***
-        # Qwen2.5 supports a system role, so instructions go in a
-        # separate system message instead of being glued to the user turn.
         messages = [
             {"role": "system", "content": RISK_INSTRUCTIONS},
             {"role": "user", "content": prompt},

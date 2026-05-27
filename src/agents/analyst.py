@@ -9,9 +9,9 @@ Backed by a local Gemma-2-9B-it model. Three pieces:
 from __future__ import annotations
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from src.config import ANALYST_MODEL_PATH, MAX_NEW_TOKENS, TEMPERATURE
+from src.config import ANALYST_MODEL_PATH, MAX_NEW_TOKENS, TEMPERATURE, USE_4BIT
 from src.graph.state import TradingState
 from src.tools.data_cache import load_data_bundle
 
@@ -41,12 +41,22 @@ with real content and keep the section headers unchanged."""
 
 
 def load_analyst_model():
-    """Load the Gemma model and tokenizer. Call this once at startup."""
+    """Load the analyst model and tokenizer. Call this once at startup."""
     tokenizer = AutoTokenizer.from_pretrained(ANALYST_MODEL_PATH)
+
+    load_kwargs = {"device_map": "cuda:0"}
+
+    if USE_4BIT:
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        )
+    else:
+        load_kwargs["dtype"] = torch.bfloat16
+
     model = AutoModelForCausalLM.from_pretrained(
-        ANALYST_MODEL_PATH,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
+        ANALYST_MODEL_PATH, **load_kwargs
     )
     return model, tokenizer
 
@@ -83,11 +93,7 @@ User question: {user_question}
 
 
 def make_analyst_node(model, tokenizer):
-    """Return the LangGraph node function, with the model bound in.
-
-    LangGraph nodes must take only `state`, so we use a factory:
-    the model/tokenizer are captured in the closure.
-    """
+    """Return the LangGraph node function, with the model bound in."""
 
     def analyst_node(state: TradingState) -> dict:
         ticker = state["ticker"]
@@ -95,8 +101,11 @@ def make_analyst_node(model, tokenizer):
 
         prompt = _build_prompt(ticker, question)
 
-        # Gemma-2 has no system role, so everything goes in one user turn.
-        messages = [{"role": "user", "content": prompt}]
+        # Qwen2.5 supports a system role.
+        messages = [
+            {"role": "system", "content": ANALYST_INSTRUCTIONS},
+            {"role": "user", "content": prompt},
+        ]
         inputs = tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
