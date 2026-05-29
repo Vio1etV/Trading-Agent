@@ -61,17 +61,34 @@ def load_analyst_model():
     return model, tokenizer
 
 
-def _build_prompt(ticker: str, user_question: str) -> str:
-    """Load cached tool data and assemble the full prompt text."""
+def _build_prompt(ticker: str, user_question: str, intent: str) -> str:
+    """Load cached tool data and assemble a prompt that adapts to intent.
+
+    - intent == "trade"  -> write the structured analyst report (template).
+    - other intents      -> answer the question conversationally using the data.
+    """
     data = load_data_bundle(ticker)
     fundamentals = data["fundamental"]
     news = data["news"]
     social = data["social"]
     macro = data["world_news"]
 
-    report_format = ANALYST_REPORT_TEMPLATE.format(ticker=ticker)
+    if intent == "trade":
+        report_format = ANALYST_REPORT_TEMPLATE.format(ticker=ticker)
+        instruction = (
+            "Write a structured analyst report following the format below. "
+            "Base every statement on the data. Do not invent numbers."
+        )
+        format_section = f"=== REPORT FORMAT (follow exactly) ===\n{report_format}"
+    else:
+        instruction = (
+            "Answer the user's question directly using only the data provided. "
+            "Keep it to 2-4 short paragraphs. Do NOT use the report template. "
+            "Do not invent numbers."
+        )
+        format_section = ""
 
-    return f"""{ANALYST_INSTRUCTIONS}
+    return f"""{instruction}
 
 User question: {user_question}
 
@@ -87,8 +104,7 @@ User question: {user_question}
 === MACRO / WORLD NEWS ===
 {macro}
 
-=== REPORT FORMAT (follow exactly) ===
-{report_format}
+{format_section}
 """
 
 
@@ -98,8 +114,9 @@ def make_analyst_node(model, tokenizer):
     def analyst_node(state: TradingState) -> dict:
         ticker = state["ticker"]
         question = state["user_question"]
+        intent = state.get("intent") or "trade"
 
-        prompt = _build_prompt(ticker, question)
+        prompt = _build_prompt(ticker, question, intent)
 
         # Qwen2.5 supports a system role.
         messages = [

@@ -1,9 +1,7 @@
-"""Streamlit web frontend for the Trading Agent.
+"""Streamlit chat frontend for the Trading Agent.
 
 Run with:
-    streamlit run app.py
-
-Requires all models downloaded and cached data available.
+    streamlit run app.py --server.port 6006 --server.address 0.0.0.0
 """
 
 from __future__ import annotations
@@ -14,7 +12,6 @@ from pathlib import Path
 
 import streamlit as st
 
-# Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -24,204 +21,43 @@ if str(PROJECT_ROOT) not in sys.path:
 st.set_page_config(
     page_title="ActiveTrader",
     page_icon="📊",
-    layout="wide",
+    layout="centered",
     initial_sidebar_state="expanded",
 )
 
-# ── Custom CSS ───────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
 
-/* Global */
-.stApp {
-    font-family: 'Outfit', sans-serif;
-}
-
-/* Hero header */
-.hero {
-    text-align: center;
-    padding: 1.5rem 0 1rem 0;
-}
-.hero h1 {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 2.4rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: 0.2rem;
-}
-.hero p {
-    font-size: 1rem;
-    opacity: 0.6;
-    margin-top: 0;
-}
-
-/* Agent cards */
-.agent-card {
-    border: 1px solid rgba(128,128,128,0.2);
-    border-radius: 12px;
-    padding: 1.2rem 1.4rem;
-    margin-bottom: 1rem;
-    backdrop-filter: blur(10px);
-    transition: border-color 0.3s;
-}
-.agent-card:hover {
-    border-color: rgba(128,128,128,0.4);
-}
-.agent-header {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    margin-bottom: 0.8rem;
-}
-.agent-badge {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 0.2rem 0.6rem;
-    border-radius: 20px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.badge-analyst {
-    background: rgba(59,130,246,0.15);
-    color: #3b82f6;
-}
-.badge-risk {
-    background: rgba(245,158,11,0.15);
-    color: #f59e0b;
-}
-.badge-trader {
-    background: rgba(16,185,129,0.15);
-    color: #10b981;
-}
-
-/* Action badges */
-.action-buy {
-    background: linear-gradient(135deg, #059669, #10b981);
-    color: white;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.4rem;
-    font-weight: 700;
-    padding: 0.4rem 1.2rem;
-    border-radius: 8px;
-    display: inline-block;
-}
-.action-sell {
-    background: linear-gradient(135deg, #dc2626, #ef4444);
-    color: white;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.4rem;
-    font-weight: 700;
-    padding: 0.4rem 1.2rem;
-    border-radius: 8px;
-    display: inline-block;
-}
-.action-hold {
-    background: linear-gradient(135deg, #d97706, #f59e0b);
-    color: white;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.4rem;
-    font-weight: 700;
-    padding: 0.4rem 1.2rem;
-    border-radius: 8px;
-    display: inline-block;
-}
-
-/* Metric cards */
-.metric-row {
-    display: flex;
-    gap: 1rem;
-    margin: 1rem 0;
-}
-.metric-card {
-    flex: 1;
-    border: 1px solid rgba(128,128,128,0.2);
-    border-radius: 10px;
-    padding: 0.8rem 1rem;
-    text-align: center;
-}
-.metric-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.5;
-    margin-bottom: 0.3rem;
-}
-.metric-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-
-/* Status indicator */
-.status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 0.4rem;
-}
-.status-running { background: #f59e0b; animation: pulse 1.5s infinite; }
-.status-done { background: #10b981; }
-.status-waiting { background: rgba(128,128,128,0.3); }
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-}
-
-/* Footer */
-.footer {
-    text-align: center;
-    padding: 2rem 0 1rem 0;
-    opacity: 0.4;
-    font-size: 0.8rem;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-# ── Helper functions ─────────────────────────────────────────────────────────
-
-def parse_action(recommendation: str) -> str:
-    """Extract Buy/Hold/Sell from the recommendation text."""
-    for line in recommendation.split("\n"):
-        if line.strip().startswith("Action:"):
-            action = line.split(":", 1)[1].strip().lower()
-            if "buy" in action:
-                return "buy"
-            elif "sell" in action:
-                return "sell"
-            else:
-                return "hold"
-    return "hold"
-
-
-def parse_field(text: str, field: str) -> str:
-    """Extract a field value from a report."""
-    for line in text.split("\n"):
-        if line.strip().startswith(f"{field}:"):
-            return line.split(":", 1)[1].strip()
-    return "N/A"
-
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def escape_dollars(text: str) -> str:
-    """Escape $ so Streamlit markdown doesn't treat them as LaTeX delimiters."""
+    """Stop Streamlit's markdown from treating $...$ as LaTeX math."""
     return text.replace("$", "\\$") if text else text
 
 
 def get_cached_tickers() -> list[str]:
-    """Return list of tickers with cached data."""
     cache_dir = PROJECT_ROOT / "data" / "cache"
     if not cache_dir.exists():
         return []
     return sorted(p.stem.upper() for p in cache_dir.glob("*.json"))
 
 
+def derive_final_response(result: dict) -> tuple[str, str]:
+    """Pick the right field from the graph result and a short label."""
+    if result.get("direct_reply"):
+        return result["direct_reply"], "router"
+    if result.get("trader_recommendation"):
+        return result["trader_recommendation"], "trader"
+    if result.get("analyst_report"):
+        return result["analyst_report"], "analyst"
+    if result.get("risk_report"):
+        return result["risk_report"], "risk"
+    return (
+        "Sorry, I couldn't generate a response. Try rephrasing.",
+        "fallback",
+    )
+
+
 @st.cache_resource(show_spinner=False)
 def load_pipeline():
-    """Load all models and build the workflow. Cached across reruns."""
     from src.graph.workflow import build_workflow
     return build_workflow()
 
@@ -229,40 +65,36 @@ def load_pipeline():
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("### ⚙️ Configuration")
-
+    st.markdown("### ⚙️ Default ticker")
     cached_tickers = get_cached_tickers()
-
     if cached_tickers:
-        ticker = st.selectbox(
-            "Select ticker",
+        default_ticker = st.selectbox(
+            "Used when your question doesn't mention one",
             cached_tickers,
             index=cached_tickers.index("NVDA") if "NVDA" in cached_tickers else 0,
         )
     else:
-        ticker = st.text_input("Ticker symbol", value="NVDA").upper()
+        default_ticker = st.text_input("Default ticker", value="NVDA").upper()
 
-    question = st.text_input(
-        "Your question",
-        value=f"Should I buy {ticker} right now?",
+    st.markdown("---")
+    st.markdown("### 🤖 What I can do")
+    st.markdown(
+        """
+- **Trade decisions** — "Should I buy NVDA?" → full analyst + risk + trader report
+- **Event impact** — "How does the Iran situation affect NVDA?"
+- **Technicals** — "What's the technical setup for TSLA?"
+- **Company info** — "What does UNH do?"
+- **Beginner Qs** — "Where do I buy stocks?"
+
+Off-topic questions (games, weather, etc.) I'll politely decline.
+        """
     )
 
-    run_button = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
-
     st.markdown("---")
-    st.markdown("### 🤖 Agent Architecture")
-    st.markdown("""
-    **Analyst** → Qwen2.5-7B  
-    Fundamentals, news, sentiment, macro
+    if st.button("🗑️ Clear conversation"):
+        st.session_state.messages = []
+        st.rerun()
 
-    **Risk Manager** → Qwen2.5-7B  
-    Technical indicators, support/resistance
-
-    **Trader** → Qwen3-8B *(SFT fine-tuned)*  
-    Synthesizes both → Buy / Hold / Sell
-    """)
-
-    st.markdown("---")
     st.markdown(
         '<p style="opacity:0.4; font-size:0.75rem;">'
         'CS 496 · Agent AI · Northwestern University</p>',
@@ -270,182 +102,59 @@ with st.sidebar:
     )
 
 
-# ── Main Content ─────────────────────────────────────────────────────────────
+# ── Main: chat ───────────────────────────────────────────────────────────────
 
-st.markdown(
-    '<div class="hero">'
-    '<h1>📊 ActiveTrader</h1>'
-    '<p>Multi-agent stock analysis powered by LLMs</p>'
-    '</div>',
-    unsafe_allow_html=True,
-)
+st.title("📊 ActiveTrader")
+st.caption("Multi-agent stock analysis — ask me anything about stocks.")
 
-if run_button:
-    # ── Load models ──────────────────────────────────────────────────────
-    with st.status("Loading models...", expanded=True) as status:
-        st.write("Loading Analyst, Risk Manager, and Trader models...")
-        graph = load_pipeline()
-        status.update(label="Models loaded ✓", state="complete")
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    # ── Run pipeline ─────────────────────────────────────────────────────
-    col_analyst, col_risk = st.columns(2)
+# Render history.
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        if msg.get("source"):
+            st.caption(f"_{msg['source']}_")
+        st.markdown(escape_dollars(msg["content"]))
 
-    # Analyst
-    with col_analyst:
-        st.markdown(
-            '<div class="agent-card">'
-            '<div class="agent-header">'
-            '<span class="agent-badge badge-analyst">Analyst</span>'
-            '<span style="opacity:0.5; font-size:0.8rem;">Qwen2.5-7B</span>'
-            '</div></div>',
-            unsafe_allow_html=True,
-        )
-        analyst_placeholder = st.empty()
-        analyst_placeholder.info("⏳ Running analyst...")
+# Input pinned at the bottom.
+user_input = st.chat_input("Ask about a stock... e.g. 'Should I buy NVDA?'")
 
-    # Risk Manager
-    with col_risk:
-        st.markdown(
-            '<div class="agent-card">'
-            '<div class="agent-header">'
-            '<span class="agent-badge badge-risk">Risk Manager</span>'
-            '<span style="opacity:0.5; font-size:0.8rem;">Qwen2.5-7B</span>'
-            '</div></div>',
-            unsafe_allow_html=True,
-        )
-        risk_placeholder = st.empty()
-        risk_placeholder.info("⏳ Running risk manager...")
+if user_input:
+    # Show user message immediately.
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-    # Run the full graph
-    start_time = time.time()
-    result = graph.invoke(
-        {
-            "ticker": ticker,
-            "user_question": question,
-            "analyst_report": None,
-            "risk_report": None,
-            "trader_recommendation": None,
-        }
-    )
-    elapsed = time.time() - start_time
+    # Run the graph.
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        placeholder.markdown("_Routing your question..._")
 
-    # Update analyst card
-    with col_analyst:
-        analyst_placeholder.empty()
-        st.markdown(escape_dollars(result.get("analyst_report", "No report generated.")))
+        with st.spinner("Thinking..."):
+            graph = load_pipeline()
+            start = time.time()
+            result = graph.invoke({
+                "user_question": user_input,
+                "ticker": default_ticker,
+                "intent": None,
+                "direct_reply": None,
+                "analyst_report": None,
+                "risk_report": None,
+                "trader_recommendation": None,
+                "final_response": None,
+            })
+            elapsed = time.time() - start
 
-    # Update risk card
-    with col_risk:
-        risk_placeholder.empty()
-        st.markdown(escape_dollars(result.get("risk_report", "No report generated.")))
+        response, source = derive_final_response(result)
+        intent = result.get("intent") or "unknown"
 
-    # ── Trader Recommendation ────────────────────────────────────────────
-    st.markdown("---")
+        placeholder.empty()
+        st.caption(f"_intent: {intent} · source: {source} · {elapsed:.1f}s_")
+        st.markdown(escape_dollars(response))
 
-    recommendation = result.get("trader_recommendation", "")
-    action = parse_action(recommendation)
-
-    # Action badge
-    action_class = f"action-{action}"
-    action_label = action.upper()
-
-    st.markdown(
-        '<div class="agent-card" style="border-color: rgba(16,185,129,0.3);">'
-        '<div class="agent-header">'
-        '<span class="agent-badge badge-trader">Trader</span>'
-        '<span style="opacity:0.5; font-size:0.8rem;">Qwen3-8B · SFT fine-tuned</span>'
-        '</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    # Metrics row
-    entry_zone = parse_field(recommendation, "Entry Zone")
-    stop_loss = parse_field(recommendation, "Stop Loss")
-    target_price = parse_field(recommendation, "Target Price")
-    confidence = parse_field(recommendation, "Confidence")
-
-    st.markdown(
-        f'<div class="metric-row">'
-        f'<div class="metric-card">'
-        f'<div class="metric-label">Action</div>'
-        f'<div class="{action_class}">{action_label}</div>'
-        f'</div>'
-        f'<div class="metric-card">'
-        f'<div class="metric-label">Confidence</div>'
-        f'<div class="metric-value">{confidence}</div>'
-        f'</div>'
-        f'<div class="metric-card">'
-        f'<div class="metric-label">Entry Zone</div>'
-        f'<div class="metric-value">{entry_zone}</div>'
-        f'</div>'
-        f'<div class="metric-card">'
-        f'<div class="metric-label">Stop Loss</div>'
-        f'<div class="metric-value">{stop_loss}</div>'
-        f'</div>'
-        f'<div class="metric-card">'
-        f'<div class="metric-label">Target Price</div>'
-        f'<div class="metric-value">{target_price}</div>'
-        f'</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-    # Full recommendation
-    st.markdown(escape_dollars(recommendation))
-
-    # Footer
-    st.markdown(
-        f'<div class="footer">'
-        f'Analysis completed in {elapsed:.1f}s · 3 agents · {ticker}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-else:
-    # Landing state
-    st.markdown("---")
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(
-            '<div class="agent-card">'
-            '<div class="agent-header">'
-            '<span class="agent-badge badge-analyst">Analyst</span>'
-            '</div>'
-            '<p style="opacity:0.6; font-size:0.9rem;">'
-            'Reads fundamentals, news, social sentiment, and macro context '
-            'to produce a comprehensive analyst report.</p>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    with col2:
-        st.markdown(
-            '<div class="agent-card">'
-            '<div class="agent-header">'
-            '<span class="agent-badge badge-risk">Risk Manager</span>'
-            '</div>'
-            '<p style="opacity:0.6; font-size:0.9rem;">'
-            'Analyzes technical indicators — RSI, MACD, Bollinger Bands — '
-            'to assess risk and identify support/resistance.</p>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    with col3:
-        st.markdown(
-            '<div class="agent-card">'
-            '<div class="agent-header">'
-            '<span class="agent-badge badge-trader">Trader</span>'
-            '</div>'
-            '<p style="opacity:0.6; font-size:0.9rem;">'
-            'SFT fine-tuned on GPT-4o recommendations. Synthesizes both '
-            'reports into an actionable Buy / Hold / Sell decision.</p>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown(
-        '<div class="footer">'
-        'Select a ticker and click <b>Run Analysis</b> to begin.'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response,
+            "source": f"intent: {intent} · {source}",
+        })

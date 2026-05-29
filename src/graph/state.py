@@ -11,11 +11,18 @@ from typing import Optional, TypedDict
 
 
 class TradingState(TypedDict):
-    # --- Inputs: set once at the start, never change ---
-    ticker: str
+    # --- Input ---
     user_question: str
 
-    # --- Outputs: start as None, filled in by each agent node ---
-    analyst_report: Optional[str]        # filled by analyst_node
-    risk_report: Optional[str]           # filled by risk_manager_node
-    trader_recommendation: Optional[str]  # filled by trader_node (later)
+    # --- Filled by the router ---
+    ticker: Optional[str]            # extracted from question, or fallback to UI selection
+    intent: Optional[str]            # trade | impact | technical | info | broker | vague | meta | out_of_scope
+    direct_reply: Optional[str]      # short answer the router writes directly (no agents needed)
+
+    # --- Filled by the agents (only when needed) ---
+    analyst_report: Optional[str]
+    risk_report: Optional[str]
+    trader_recommendation: Optional[str]
+
+    # --- Final user-facing response ---
+    final_response: Optional[str]

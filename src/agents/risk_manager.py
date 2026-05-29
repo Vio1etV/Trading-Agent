@@ -64,19 +64,38 @@ def load_risk_model():
     return model, tokenizer
 
 
-def _build_prompt(ticker: str, user_question: str) -> str:
-    """Load cached indicator data and assemble the user-turn prompt text."""
+def _build_prompt(ticker: str, user_question: str, intent: str) -> str:
+    """Build a prompt that adapts to intent.
+
+    - intent == "trade"  -> structured risk report (template).
+    - other intents      -> conversational answer to the question.
+    """
     data = load_data_bundle(ticker)
     indicators = data["indicators"]
-    report_format = RISK_REPORT_TEMPLATE.format(ticker=ticker)
 
-    return f"""User question: {user_question}
+    if intent == "trade":
+        report_format = RISK_REPORT_TEMPLATE.format(ticker=ticker)
+        instruction = (
+            "Write a structured risk report following the format below. "
+            "Base every statement on the indicators. Do not invent numbers."
+        )
+        format_section = f"=== REPORT FORMAT (follow exactly) ===\n{report_format}"
+    else:
+        instruction = (
+            "Answer the user's question directly using only the technical indicators below. "
+            "Keep it to 2-4 short paragraphs. Do NOT use the report template. "
+            "Do not invent numbers."
+        )
+        format_section = ""
+
+    return f"""{instruction}
+
+User question: {user_question}
 
 === TECHNICAL INDICATORS ===
 {indicators}
 
-=== REPORT FORMAT (follow exactly) ===
-{report_format}
+{format_section}
 """
 
 
@@ -86,8 +105,9 @@ def make_risk_node(model, tokenizer):
     def risk_node(state: TradingState) -> dict:
         ticker = state["ticker"]
         question = state["user_question"]
+        intent = state.get("intent") or "trade"
 
-        prompt = _build_prompt(ticker, question)
+        prompt = _build_prompt(ticker, question, intent)
 
         messages = [
             {"role": "system", "content": RISK_INSTRUCTIONS},
