@@ -206,6 +206,11 @@ def parse_field(text: str, field: str) -> str:
     return "N/A"
 
 
+def escape_dollars(text: str) -> str:
+    """Escape $ so Streamlit markdown doesn't treat them as LaTeX delimiters."""
+    return text.replace("$", "\\$") if text else text
+
+
 def get_cached_tickers() -> list[str]:
     """Return list of tickers with cached data."""
     cache_dir = PROJECT_ROOT / "data" / "cache"
@@ -327,12 +332,12 @@ if run_button:
     # Update analyst card
     with col_analyst:
         analyst_placeholder.empty()
-        st.markdown(result.get("analyst_report", "No report generated."))
+        st.markdown(escape_dollars(result.get("analyst_report", "No report generated.")))
 
     # Update risk card
     with col_risk:
         risk_placeholder.empty()
-        st.markdown(result.get("risk_report", "No report generated."))
+        st.markdown(escape_dollars(result.get("risk_report", "No report generated.")))
 
     # ── Trader Recommendation ────────────────────────────────────────────
     st.markdown("---")
@@ -386,7 +391,7 @@ if run_button:
     )
 
     # Full recommendation
-    st.markdown(recommendation)
+    st.markdown(escape_dollars(recommendation))
 
     # Footer
     st.markdown(
