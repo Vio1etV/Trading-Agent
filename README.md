@@ -33,7 +33,7 @@ User question
 ```bash
 git clone <repo> && cd Trading-Agent
 # activate your conda env
-export HF_TOKEN=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
+export HF_TOKEN=hf_gHwrxxxxx
 bash setup.sh                                   # install deps + download 3 models (~49GB)
 python scripts/prepare_data.py --ticker NVDA    # fetch data, save to cache (needs internet)
 python scripts/test_agents.py --ticker NVDA     # run the agents, see the reports (needs GPU)
