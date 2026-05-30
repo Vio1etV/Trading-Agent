@@ -57,7 +57,16 @@ Intent definitions:
 
 Rules:
 - For intents {trade, impact, technical, info}: direct_reply = null. The system will dispatch to the right agents.
-- For intents {broker, vague, meta, out_of_scope}: write a short direct_reply (1-3 sentences). No agents will run.
+- For intents {broker, meta, out_of_scope}: write a short direct_reply (1-3 sentences). No agents will run.
+- For intent "vague": direct_reply MUST be a clarifying QUESTION that asks the user for the missing context.
+  Ask about capital amount, time horizon (intraday / weeks / years), risk tolerance
+  (conservative / moderate / aggressive), and which sectors they care about.
+  Pick the 2-3 most relevant. Example:
+    "Before I can suggest a stock, tell me:
+     1) how much capital you're working with,
+     2) your time horizon (days, months, years), and
+     3) any sector you're drawn to (AI, semiconductors, healthcare, etc.)."
+  Do NOT give a generic 'it depends on your goals' answer.
 - For ticker: extract from question if mentioned (e.g. "NVDA", "Nvidia" -> "NVDA"). Otherwise null.
 - If the user mentions a company name ("Nvidia", "Apple"), convert to ticker ("NVDA", "AAPL").
 
