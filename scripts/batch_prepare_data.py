@@ -36,6 +36,7 @@ def main():
     from src.tools.world_news import format_world_news_for_agent
     from src.tools.indicators import format_indicators_for_agent
     from src.tools.data_cache import cache_path, CACHE_DIR
+    from scripts.prepare_data import fetch_price_history
 
     import json
 
@@ -59,8 +60,25 @@ def main():
     for i, ticker in enumerate(tickers, 1):
         path = cache_path(ticker)
         if path.exists():
-            print(f"[{i}/{len(tickers)}] {ticker}: already cached, skipping")
-            succeeded.append(ticker)
+            # Cache exists — only add missing price_history (no full refetch).
+            with open(path, encoding="utf-8") as f:
+                existing = json.load(f)
+            if existing.get("price_history"):
+                print(f"[{i}/{len(tickers)}] {ticker}: complete, skipping")
+                succeeded.append(ticker)
+                continue
+            print(f"[{i}/{len(tickers)}] {ticker}: adding price_history...", end=" ", flush=True)
+            try:
+                existing["price_history"] = fetch_price_history(ticker)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(existing, f, indent=2)
+                print("OK")
+                succeeded.append(ticker)
+            except Exception as e:
+                print(f"FAILED: {e}")
+                failed.append((ticker, str(e)))
+            if i < len(tickers):
+                time.sleep(args.delay)
             continue
 
         print(f"[{i}/{len(tickers)}] {ticker}: fetching...", end=" ", flush=True)
@@ -73,6 +91,7 @@ def main():
                     f"{ticker} stock market news outlook"
                 ),
                 "indicators": format_indicators_for_agent(ticker),
+                "price_history": fetch_price_history(ticker),
             }
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(bundle, f, indent=2)

@@ -22,8 +22,22 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.tools.finance_news import format_news_for_agent  # noqa: E402
 from src.tools.fundamental_data import format_fundamental_for_agent  # noqa: E402
 from src.tools.indicators import format_indicators_for_agent  # noqa: E402
+from src.tools.market_data import get_price_history  # noqa: E402
 from src.tools.social_media import format_social_for_agent  # noqa: E402
 from src.tools.world_news import format_world_news_for_agent  # noqa: E402
+
+
+def fetch_price_history(ticker: str) -> list[dict]:
+    """Cache the last 30 close prices for chart rendering on the frontend."""
+    df = get_price_history(ticker, period="1mo", interval="1d")
+    date_col = "Date" if "Date" in df.columns else "Datetime"
+    rows = []
+    for _, r in df.tail(30).iterrows():
+        rows.append({
+            "date": str(r[date_col])[:10],
+            "close": float(r["Close"]),
+        })
+    return rows
 
 CACHE_DIR = PROJECT_ROOT / "data" / "cache"
 
@@ -50,6 +64,7 @@ def main() -> None:
         ("world_news", lambda: format_world_news_for_agent(
             f"{ticker} stock industry macro news")),
         ("indicators", lambda: format_indicators_for_agent(ticker)),
+        ("price_history", lambda: fetch_price_history(ticker)),
     ]
 
     for key, fn in steps:
