@@ -13,10 +13,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = PROJECT_ROOT / "models"
 
 # --- Model paths (local HuggingFace snapshots) ---
-ANALYST_MODEL_PATH = str(MODELS_DIR / "gemma-2-9b-it")
+ANALYST_MODEL_PATH = str(MODELS_DIR / "qwen2.5-7b-instruct")
 RISK_MODEL_PATH = str(MODELS_DIR / "qwen2.5-7b-instruct")
 TRADER_MODEL_PATH = str(MODELS_DIR / "qwen3-8b")
 
 # --- Generation settings (shared defaults) ---
 MAX_NEW_TOKENS = 768
 TEMPERATURE = 0.7
+
+# --- Quantization (fits 7-9B models in 8GB VRAM) ---
+# Set to False to load in full bfloat16 (needs ~18GB per model)
+USE_4BIT = True
