@@ -424,7 +424,6 @@ if user_input:
         ticker = result.get("ticker") or default_ticker
         caption = f"_intent: {intent} · source: {source} · {elapsed:.1f}s_"
 
-        placeholder.empty()
         st.caption(caption)
 
         if intent == "trade" and source == "trader":
