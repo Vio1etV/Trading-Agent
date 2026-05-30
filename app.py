@@ -371,23 +371,53 @@ if user_input:
         st.markdown(user_input)
 
     with st.chat_message("assistant"):
-        placeholder = st.empty()
-        placeholder.markdown("_Routing your question..._")
+        graph = load_pipeline()
+        initial = {
+            "user_question": user_input,
+            "ticker": default_ticker,
+            "intent": None,
+            "direct_reply": None,
+            "analyst_report": None,
+            "risk_report": None,
+            "trader_recommendation": None,
+            "final_response": None,
+        }
 
-        with st.spinner("Thinking..."):
-            graph = load_pipeline()
-            start = time.time()
-            result = graph.invoke({
-                "user_question": user_input,
-                "ticker": default_ticker,
-                "intent": None,
-                "direct_reply": None,
-                "analyst_report": None,
-                "risk_report": None,
-                "trader_recommendation": None,
-                "final_response": None,
-            })
+        node_labels = {
+            "router": "🔍 Router · classifying question",
+            "analyst": "📊 Analyst · writing report",
+            "risk_manager": "📈 Risk Manager · analyzing technicals",
+            "trader": "🎯 Trader · synthesizing recommendation",
+        }
+
+        start = time.time()
+        result = dict(initial)
+
+        with st.status("Routing your question...", expanded=True) as status:
+            for chunk in graph.stream(initial, stream_mode="updates"):
+                for node_name, updates in chunk.items():
+                    result.update(updates)
+                    label = node_labels.get(node_name, node_name)
+                    st.write(f"{label} ✓")
+
+                    if node_name == "router":
+                        intent = updates.get("intent") or "?"
+                        status.update(label=f"Intent: {intent}")
+                    elif node_name == "analyst" and updates.get("analyst_report"):
+                        with st.expander("Analyst preview"):
+                            st.markdown(escape_dollars(updates["analyst_report"][:800]))
+                    elif node_name == "risk_manager" and updates.get("risk_report"):
+                        with st.expander("Risk preview"):
+                            st.markdown(escape_dollars(updates["risk_report"][:800]))
+                    elif node_name == "trader" and updates.get("trader_recommendation"):
+                        st.write("🎯 Trader produced final recommendation.")
+
             elapsed = time.time() - start
+            status.update(
+                label=f"Done · {elapsed:.1f}s",
+                state="complete",
+                expanded=False,
+            )
 
         response, source = derive_final_response(result)
         intent = result.get("intent") or "unknown"
