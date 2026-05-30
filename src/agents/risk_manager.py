@@ -67,17 +67,18 @@ def load_risk_model():
 def _build_prompt(ticker: str, user_question: str, intent: str) -> str:
     """Build a prompt that adapts to intent.
 
-    - intent == "trade"  -> structured risk report (template).
-    - other intents      -> conversational answer to the question.
+    - intent in {"trade", "technical"}  -> structured risk report (template).
+    - other intents                     -> short conversational answer.
     """
     data = load_data_bundle(ticker)
     indicators = data["indicators"]
 
-    if intent == "trade":
+    if intent in ("trade", "technical"):
         report_format = RISK_REPORT_TEMPLATE.format(ticker=ticker)
         instruction = (
             "Write a structured risk report following the format below. "
-            "Base every statement on the indicators. Do not invent numbers."
+            "Base every statement on the indicators. Do not invent numbers. "
+            "Also briefly address the user's specific question in the Risk Assessment line."
         )
         format_section = f"=== REPORT FORMAT (follow exactly) ===\n{report_format}"
     else:

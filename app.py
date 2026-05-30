@@ -360,6 +360,11 @@ for msg in st.session_state.messages:
             st.caption(msg["caption"])
         if msg.get("kind") == "trade":
             render_trade_output(msg["content"], msg["ticker"], msg["fmt"])
+        elif msg.get("kind") == "technical":
+            st.markdown(escape_dollars(msg["content"]))
+            st.markdown("---")
+            st.markdown(f"**14-day price + 5-day projection · {msg['ticker']}**")
+            render_price_chart(msg["ticker"])
         else:
             st.markdown(escape_dollars(msg["content"]))
 
@@ -436,6 +441,19 @@ if user_input:
                 "kind": "trade",
                 "ticker": ticker,
                 "fmt": fmt,
+            })
+        elif intent == "technical" and source == "risk":
+            # Structured risk report + price chart
+            st.markdown(escape_dollars(response))
+            st.markdown("---")
+            st.markdown(f"**14-day price + 5-day projection · {ticker}**")
+            render_price_chart(ticker)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": response,
+                "caption": caption,
+                "kind": "technical",
+                "ticker": ticker,
             })
         else:
             st.markdown(escape_dollars(response))
